@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tanatología · Expedientes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--cream:#f6f0e5;--sage:#647b6a;--blue:#71838a;--card:#fffdf8;--line:#d9d8cf;--soft:#e7ebdd;--soft2:#edf1f2;--red:#8a5f5f}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--cream);color:#52636a}
+header{padding:20px 28px;border-bottom:1px solid var(--line);background:#fbf7ef}h1{margin:0;color:var(--sage);font-size:26px}header p{margin:5px 0 0}
+.wrap{max-width:1180px;margin:auto;padding:22px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:12px 0;box-shadow:0 2px 8px #0000000a}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
+button{border:0;border-radius:9px;padding:10px 14px;font-weight:650;cursor:pointer;background:var(--sage);color:white}button.secondary{background:var(--blue)}button.light{background:#dfe5e2;color:#45575d}
+label{font-weight:650;display:block;margin-bottom:5px}input,textarea,select{width:100%;border:1px solid #c9cec9;border-radius:8px;padding:10px;font:inherit;background:white;color:#33454b}textarea{min-height:86px;resize:vertical}
+.patient{display:flex;justify-content:space-between;align-items:center;gap:12px}.muted{color:#7b898d;font-size:14px}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:var(--soft);font-size:13px}
+.previous{background:var(--soft2)}.conclusion{border-left:5px solid var(--sage);padding-left:12px}.notice{background:#fff5d8;border:1px solid #e6d19c;padding:12px;border-radius:10px;font-size:14px}
+.good{background:#e7f0e8;border:1px solid #bfd0c1;padding:12px;border-radius:10px}.empty{text-align:center;padding:34px;color:#7b898d}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--sage)}
+.topline{display:flex;justify-content:space-between;gap:12px;align-items:center}.session{border-left:4px solid #9aaa9b;padding-left:14px;margin:18px 0}.session h3{margin:0 0 8px;color:var(--sage)}
+.auth{max-width:520px;margin:45px auto}.auth h2{color:var(--sage)}.status{font-size:13px;margin-top:8px}.danger{color:#8a4040}.hidden{display:none!important}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:12px}.patient,.topline{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<header><h1>Tanatología · Acompañamiento emocional</h1><p>Expediente longitudinal privado y sincronizado</p></header>
+<main class="wrap" id="app"><div class="empty">Conectando…</div></main>
+<script>
+const SUPABASE_URL='https://gequiucunnyfjqboghkc.supabase.co';
+const SUPABASE_KEY='sb_publishable_u9xp7dJxkEkAifua0h16mQ_MMOIdv38';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const app=document.getElementById('app'); let user=null,current=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const val=id=>document.getElementById(id)?.value.trim()||''; const today=()=>new Date().toISOString().slice(0,10);
+function err(e){console.error(e);alert(e?.message||String(e))}
+function authScreen(msg=''){
+ app.innerHTML=`<div class="auth card"><h2>Acceso a expedientes</h2><p>Inicia sesión para consultar la misma información desde tu computadora, laptop o teléfono.</p>
+ <label>Correo electrónico</label><input id="email" type="email" autocomplete="email">
+ <label style="margin-top:12px">Contraseña</label><input id="password" type="password" autocomplete="current-password">
+ <div class="toolbar"><button onclick="login()">Entrar</button><button class="secondary" onclick="signup()">Crear mi acceso</button></div>
+ <div class="muted">La primera vez, Supabase puede pedir confirmar el correo electrónico.</div>${msg?`<div class="status">${esc(msg)}</div>`:''}</div>`}
+async function login(){try{let email=val('email'),password=val('password');if(!email||!password)return alert('Escribe correo y contraseña.');let {error}=await db.auth.signInWithPassword({email,password});if(error)throw error}catch(e){err(e)}}
+async function signup(){try{let email=val('email'),password=val('password');if(!email||password.length<8)return alert('Escribe tu correo y una contraseña de al menos 8 caracteres.');let {data,error}=await db.auth.signUp({email,password});if(error)throw error;if(data.session){user=data.user;home()}else authScreen('Cuenta creada. Revisa tu correo para confirmar la dirección y después vuelve aquí para entrar.')}catch(e){err(e)}}
+async function logout(){await db.auth.signOut()}
+db.auth.onAuthStateChange((_e,s)=>{user=s?.user||null; setTimeout(()=>user?home():authScreen(),0)});
+(async()=>{let {data}=await db.auth.getSession();user=data.session?.user||null;user?home():authScreen()})();
+
+async function home(){
+ current=null;app.innerHTML=`<div class="topline"><div><h2>Pacientes</h2><div class="muted">Expedientes sincronizados · ${esc(user.email)}</div></div>
+ <div class="toolbar"><button onclick="patientForm()">+ Nuevo paciente</button><button class="secondary" onclick="backup()">Respaldar mis datos</button><button class="light" onclick="logout()">Cerrar sesión</button></div></div>
+ <div class="good">La información de esta versión se guarda en tu proyecto privado de Supabase y se sincroniza al iniciar sesión.</div>
+ <div class="card"><input id="q" placeholder="Buscar por nombre o número de expediente" oninput="renderPatients()"><div id="plist"><div class="empty">Cargando…</div></div></div>`;
+ await renderPatients();
+}
+async function getPatients(){
+ let {data,error}=await db.from('patients').select('id,expediente_no,full_name,reason_for_consultation,objectives,alerts,created_at').order('created_at',{ascending:false});if(error)throw error;return data||[];
+}
+async function renderPatients(){
+ try{let q=(document.getElementById('q')?.value||'').toLowerCase(),ps=await getPatients();ps=ps.filter(p=>(p.full_name+' '+p.expediente_no).toLowerCase().includes(q));
+ let box=document.getElementById('plist');if(!box)return;box.innerHTML=ps.length?ps.map(p=>`<div class="patient card"><div><b>${esc(p.full_name)}</b><div class="muted">Expediente ${esc(p.expediente_no)}</div></div><button onclick="openPatient('${p.id}')">Abrir expediente</button></div>`).join(''):`<div class="empty">Aún no hay pacientes registrados.</div>`}catch(e){err(e)}
+}
+const PF=[['expediente_no','No. de expediente','input'],['full_name','Nombre / identificador del paciente','input'],['birth_date','Fecha de nacimiento','date'],['phone','Teléfono','input'],['email','Correo','input'],['emergency_contact','Contacto de emergencia','input'],['reason_for_consultation','Motivo de consulta','textarea'],['loss_type','Tipo de pérdida','textarea'],['loss_date','Fecha de la pérdida','date'],['loss_circumstances','Circunstancias de la pérdida','textarea'],['relevant_background','Antecedentes relevantes','textarea'],['support_network','Red de apoyo','textarea'],['initial_assessment','Valoración inicial','textarea'],['objectives','Objetivos del acompañamiento','textarea'],['resources','Recursos / factores protectores','textarea'],['alerts','Alertas / aspectos de seguimiento','textarea']];
+async function patientForm(id=''){
+ try{let p={};if(id){let {data,error}=await db.from('patients').select('*').eq('id',id).single();if(error)throw error;p=data}
+ app.innerHTML=`<h2>Expediente maestro del paciente</h2><div class="card grid">${PF.map(([k,l,t])=>`<div class="${t==='textarea'?'full':''}"><label>${l}</label>${t==='textarea'?`<textarea id="${k}">${esc(p[k])}</textarea>`:`<input id="${k}" type="${t}" value="${esc(p[k])}">`}</div>`).join('')}</div><div class="toolbar"><button class="light" onclick="${id?`openPatient('${id}')`:'home()'}">Cancelar</button><button onclick="savePatient('${id}')">Guardar expediente</button></div>`}catch(e){err(e)}
+}
+async function savePatient(id){
+ try{let o={};PF.forEach(([k])=>o[k]=val(k)||null);if(!o.full_name)return alert('Escribe el nombre o identificador del paciente.');if(!o.expediente_no)o.expediente_no='EXP-'+Date.now();o.clinician_id=user.id;
+ let r=id?await db.from('patients').update(o).eq('id',id).select().single():await db.from('patients').insert(o).select().single();if(r.error)throw r.error;openPatient(r.data.id)}catch(e){err(e)}
+}
+async function loadPatient(id){let {data,error}=await db.from('patients').select('*').eq('id',id).single();if(error)throw error;return data}
+async function loadSessions(id){let {data,error}=await db.from('sessions').select('*').eq('patient_id',id).order('session_number',{ascending:true});if(error)throw error;return data||[]}
+async function openPatient(id){
+ try{current=id;let [p,ss]=await Promise.all([loadPatient(id),loadSessions(id)]),last=ss.at(-1);
+ app.innerHTML=`<div class="topline"><div><h2>${esc(p.full_name)}</h2><div class="muted">Expediente ${esc(p.expediente_no)}</div></div><span class="pill">${ss.length} sesión(es)</span></div>
+ <div class="toolbar"><button class="light" onclick="home()">← Pacientes</button><button class="secondary" onclick="patientForm('${id}')">Editar expediente</button><button onclick="newSession('${id}')">+ Nueva sesión</button><button class="secondary" onclick="history('${id}')">Historial</button><button class="secondary" onclick="evolution('${id}')">Evolución del proceso</button></div>
+ <div class="card"><h3>Resumen del expediente</h3><p><b>Motivo:</b> ${esc(p.reason_for_consultation)||'—'}</p><p><b>Objetivos:</b> ${esc(p.objectives)||'—'}</p><p><b>Alertas:</b> ${esc(p.alerts)||'—'}</p></div>
+ <div class="card previous"><h3>De la sesión anterior</h3>${last?`<p><b>Sesión ${last.session_number} · ${esc(last.session_date)}</b></p><p><b>Acontecimiento clave:</b> ${esc(last.key_event)||'—'}</p><p><b>Tema que continúa:</b> ${esc(last.conclusion_continuity||last.central_theme)||'—'}</p><p><b>Pendiente:</b> ${esc(last.pending)||'—'}</p><p><b>Último cambio observado:</b> ${esc(last.observed_changes||last.conclusion_change)||'—'}</p><p><b>Conclusión:</b> ${esc(last.conclusion_summary)||'—'}</p>`:'<p>Aún no hay sesiones registradas.</p>'}</div>`}catch(e){err(e)}
+}
+const SF=[['since_previous','¿Qué ocurrió desde la sesión anterior?'],['central_theme','Tema central de la sesión'],['important_events','Acontecimientos importantes'],['key_event','Acontecimiento clave'],['relevant_expressions','Expresiones relevantes del paciente'],['intervention','Intervención realizada'],['observed_changes','Cambios observados'],['safety_notes','Seguridad y funcionamiento'],['pending','Qué queda pendiente'],['conclusion_summary','CONCLUSIÓN · Síntesis profesional'],['conclusion_change','CONCLUSIÓN · Avance o cambio observado'],['conclusion_continuity','CONCLUSIÓN · Aspectos que requieren continuidad'],['conclusion_followup','CONCLUSIÓN · Foco sugerido para seguimiento']];
+async function newSession(id){
+ try{let [p,ss]=await Promise.all([loadPatient(id),loadSessions(id)]),last=ss.at(-1);
+ app.innerHTML=`<h2>Nueva sesión · ${esc(p.full_name)}</h2>${last?`<div class="card previous"><b>DE LA SESIÓN ANTERIOR</b><p>Acontecimiento: ${esc(last.key_event)||'—'}<br>Tema que continúa: ${esc(last.conclusion_continuity||last.central_theme)||'—'}<br>Pendiente: ${esc(last.pending)||'—'}</p></div>`:''}
+ <div class="card grid"><div><label>Fecha</label><input id="session_date" type="date" value="${today()}"></div><div><label>Nivel de seguimiento de seguridad</label><select id="safety_level"><option value="sin_alerta">Sin alerta</option><option value="atencion">Atención</option><option value="prioritario">Prioritario</option></select></div>
+ ${SF.map(([k,l],i)=>`<div class="full ${i>=9?'conclusion':''}"><label>${l}</label><textarea id="${k}"></textarea></div>`).join('')}</div><div class="toolbar"><button class="light" onclick="openPatient('${id}')">Cancelar</button><button onclick="saveSession('${id}',${ss.length+1})">Guardar sesión</button></div>`}catch(e){err(e)}
+}
+async function saveSession(id,n){
+ try{let o={patient_id:id,clinician_id:user.id,session_number:n,session_date:val('session_date')||today(),safety_level:val('safety_level')||'sin_alerta'};SF.forEach(([k])=>o[k]=val(k)||null);
+ let {error}=await db.from('sessions').insert(o);if(error)throw error;alert('La sesión '+n+' se agregó al historial. Las sesiones anteriores permanecen sin cambios.');openPatient(id)}catch(e){err(e)}
+}
+async function history(id){
+ try{let [p,ss]=await Promise.all([loadPatient(id),loadSessions(id)]);ss.reverse();app.innerHTML=`<h2>Historial cronológico · ${esc(p.full_name)}</h2><div class="toolbar"><button class="light" onclick="openPatient('${id}')">← Expediente</button></div><div class="card">${ss.length?`<table><thead><tr><th>Sesión</th><th>Fecha</th><th>Tema central</th><th>Conclusión</th></tr></thead><tbody>${ss.map(s=>`<tr><td>${s.session_number}</td><td>${esc(s.session_date)}</td><td>${esc(s.central_theme)||'—'}</td><td>${esc(s.conclusion_summary)||'—'}<br><button class="light" onclick="sessionDetail('${id}','${s.id}')">Ver completa</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Aún no hay sesiones.</div>'}</div>`}catch(e){err(e)}
+}
+async function sessionDetail(id,sid){
+ try{let {data:s,error}=await db.from('sessions').select('*').eq('id',sid).single();if(error)throw error;app.innerHTML=`<h2>Sesión ${s.session_number} · ${esc(s.session_date)}</h2><div class="toolbar"><button class="light" onclick="history('${id}')">← Historial</button></div><div class="card">${SF.map(([k,l])=>`<p><b>${l}</b><br>${esc(s[k])||'—'}</p>`).join('')}</div>`}catch(e){err(e)}
+}
+async function evolution(id){
+ try{let [p,ss]=await Promise.all([loadPatient(id),loadSessions(id)]);app.innerHTML=`<h2>Evolución del proceso · ${esc(p.full_name)}</h2><div class="toolbar"><button class="light" onclick="openPatient('${id}')">← Expediente</button></div><div class="card">${ss.length?ss.map(s=>`<div class="session"><h3>Sesión ${s.session_number} · ${esc(s.session_date)}</h3><p><b>Acontecimiento clave:</b> ${esc(s.key_event)||'—'}<br><b>Tema central:</b> ${esc(s.central_theme)||'—'}<br><b>Cambio observado:</b> ${esc(s.observed_changes||s.conclusion_change)||'—'}<br><b>Pendiente:</b> ${esc(s.pending)||'—'}<br><b>Conclusión:</b> ${esc(s.conclusion_summary)||'—'}<br><b>Continuidad:</b> ${esc(s.conclusion_continuity)||'—'}</p></div>`).join(''):'<div class="empty">Aún no hay sesiones registradas.</div>'}</div>`}catch(e){err(e)}
+}
+async function backup(){
+ try{let ps=await getPatients(),pack={exported_at:new Date().toISOString(),patients:[]};for(const p0 of ps){let p=await loadPatient(p0.id),sessions=await loadSessions(p.id);pack.patients.push({patient:p,sessions})}
+ let blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Respaldo_Tanatologia_Nube_'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch(e){err(e)}
+}
+</script></body></html>
