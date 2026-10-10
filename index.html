@@ -44,8 +44,21 @@ function authScreen(msg=''){
 async function login(){try{let email=val('email'),password=val('password');if(!email||!password)return alert('Escribe correo y contraseña.');let {error}=await db.auth.signInWithPassword({email,password});if(error)throw error}catch(e){err(e)}}
 async function signup(){try{let email=val('email'),password=val('password');if(!email||password.length<8)return alert('Escribe tu correo y una contraseña de al menos 8 caracteres.');let {data,error}=await db.auth.signUp({email,password});if(error)throw error;if(data.session){user=data.user;home()}else authScreen('Cuenta creada. Revisa tu correo para confirmar la dirección y después vuelve aquí para entrar.')}catch(e){err(e)}}
 async function logout(){await db.auth.signOut()}
-db.auth.onAuthStateChange((_e,s)=>{user=s?.user||null; setTimeout(()=>user?home():authScreen(),0)});
-(async()=>{let {data}=await db.auth.getSession();user=data.session?.user||null;user?home():authScreen()})();
+let authInitialized=false;
+db.auth.onAuthStateChange((event,session)=>{
+ const previousId=user?.id||null;
+ user=session?.user||null;
+ if(!authInitialized)return;
+ if(event==='SIGNED_OUT'){current=null;authScreen();return;}
+ if(event==='SIGNED_IN' && user && previousId!==user.id){home();}
+ // Renovar tokens o actualizar usuario nunca debe interrumpir la captura.
+});
+(async()=>{
+ try{const {data,error}=await db.auth.getSession();if(error)throw error;
+ user=data.session?.user||null;authInitialized=true;
+ if(user)home();else authScreen();
+ }catch(e){authInitialized=true;err(e);authScreen();}
+})();
 
 async function home(){
  current=null;app.innerHTML=`<div class="topline"><div><h2>Pacientes</h2><div class="muted">Expedientes sincronizados · ${esc(user.email)}</div></div>
