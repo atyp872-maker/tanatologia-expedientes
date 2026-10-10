@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tanatología · Expedientes</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#647b6a">
+<link rel="icon" href="./icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--cream:#f6f0e5;--sage:#647b6a;--blue:#71838a;--card:#fffdf8;--line:#d9d8cf;--soft:#e7ebdd;--soft2:#edf1f2;--red:#8a5f5f}
@@ -100,4 +103,4 @@ async function backup(){
  try{let ps=await getPatients(),pack={exported_at:new Date().toISOString(),patients:[]};for(const p0 of ps){let p=await loadPatient(p0.id),sessions=await loadSessions(p.id);pack.patients.push({patient:p,sessions})}
  let blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Respaldo_Tanatologia_Nube_'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch(e){err(e)}
 }
-</script></body></html>
+</script><script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.warn)}</script></body></html>
